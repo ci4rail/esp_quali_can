@@ -91,7 +91,7 @@ static void can_report_task(void *arg)
         char msg[MAX_MSG_SIZE];
         vTaskDelay(pdMS_TO_TICKS(1000));
         /* print amount of payload dent in the last second */
-        ESP_LOGI(TAG, "Data rate (last second): %d bit/s (%d messages sent in the last second)\n",
+        ESP_LOGI(TAG, "Data rate (last second): %d bit/s (%d messages sent in the last second)",
         (handle_priv->handle_data.total_data - last_len)*8, handle_priv->handle_data.msg_counter - last_msg_cnt);
         /* report data rate */
         snprintf(&(msg[0]), MAX_MSG_SIZE, "INF: Data rate: %d bit/s (%d messages/sec)\n",
@@ -100,6 +100,7 @@ static void can_report_task(void *arg)
         last_len = handle_priv->handle_data.total_data;
         last_msg_cnt = handle_priv->handle_data.msg_counter;
     }
+
     vTaskDelete(NULL);
 }
 
@@ -132,7 +133,7 @@ static void can_transmit_task(void *arg)
         if(ret != ESP_OK)
         {
             ESP_LOGI(TAG, "Transmit Error: ret = 0x%x", ret);
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: can transmit error"));
+            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: can transmit error\n"));
         }
         else
         {
@@ -160,11 +161,24 @@ static void can_test_control_task(void *arg)
 
     while(!handle_priv->handle_data.stop_restart) {
         ESP_LOGI(TAG, "Wait for start...");
+        vTaskDelay(pdMS_TO_TICKS(100));
         ESP_ERROR_CHECK(reporter->wait_for_start(reporter));
-        xTaskCreate(&can_report_task, "can_report", CAN_REPORT_THREAD_STACK_SIZE, (void*)handle_priv, 5, NULL);
-        xTaskCreate(&can_transmit_task, "can_transmit", CAN_TRANSMIT_THREAD_STACK_SIZE, (void*)handle_priv, 5, NULL);
+        /* reset stop test flag */
+        handle_priv->handle_data.stop_test = false;
+
+        if(xTaskCreate(&can_report_task, "can_report", CAN_REPORT_THREAD_STACK_SIZE, (void*)handle_priv, 5, NULL) != pdPASS) {
+            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: could not start can report task!\n"));
+            continue;
+        }
+        if(xTaskCreate(&can_transmit_task, "can_transmit", CAN_TRANSMIT_THREAD_STACK_SIZE, (void*)handle_priv, 5, NULL) != pdPASS) {
+            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: could not start can transmit task!\n"));
+            handle_priv->handle_data.stop_test = true;
+            continue;
+        }
+
         ESP_LOGI(TAG, "Wait for stop...");
         ESP_ERROR_CHECK(reporter->wait_for_stop(reporter));
+        /* stop test */
         handle_priv->handle_data.stop_test = true;
     }
 
