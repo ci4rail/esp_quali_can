@@ -111,6 +111,7 @@ static void can_transmit_task(void *arg)
     test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
     const twai_message_t message = {.identifier = handle_priv->handle_data.msg_id, .data_length_code = 8,
                                       .ss = 1, .data = {1, 2, 3, 4, 5, 6, 7, 8}};
+    char report[80];
 
     ESP_ERROR_CHECK(twai_start());
     ESP_LOGI(TAG, "Driver started");
@@ -134,7 +135,9 @@ static void can_transmit_task(void *arg)
         if(ret != ESP_OK)
         {
             ESP_LOGI(TAG, "Transmit Error: ret = 0x%x", ret);
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: can transmit error\n"));
+            sprintf(report, "ERR: Transmit Error: ret = 0x%x\n", ret);
+            ESP_ERROR_CHECK(reporter->report_status(reporter, report));
+            vTaskDelay(pdMS_TO_TICKS(500)); // don't flood host with errors
         }
         else
         {
