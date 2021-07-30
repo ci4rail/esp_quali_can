@@ -76,6 +76,7 @@ static void can_alert_task(void *arg)
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_BUS_OFF");
             ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_OFF\n"));
         }
+        vTaskDelay(pdMS_TO_TICKS(500)); // don't flood host with errors
     }
 }
 
