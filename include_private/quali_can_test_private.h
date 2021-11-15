@@ -15,7 +15,7 @@ limitations under the License.
 
 #include "quali_can_test.h"
 
-#define STATUS_REPORT_THREAD_STACK_SIZE  4096
+#define STATUS_REPORT_THREAD_STACK_SIZE 4096
 
 typedef struct {
     test_status_report_handle_t *reporter;
@@ -27,12 +27,11 @@ typedef struct {
     uint32_t msg_counter;
     bool stop_test;
     bool stop_restart;
-}quali_can_test_data_t;
-
+} quali_can_test_data_t;
 
 typedef struct {
     quali_can_test_handle_t handle_pub;
     quali_can_test_data_t handle_data;
-}quali_can_test_handle_priv_t;
+} quali_can_test_handle_priv_t;
 
-#endif //_QUALI_CAN_TEST_PRIVATE_H_
+#endif  //_QUALI_CAN_TEST_PRIVATE_H_
