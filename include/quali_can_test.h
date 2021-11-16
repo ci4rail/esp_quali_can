@@ -13,21 +13,18 @@ limitations under the License.
 #ifndef _QUALI_CAN_TEST_H_
 #define _QUALI_CAN_TEST_H_
 
-#include "esp_err.h"
 #include "driver/twai.h"
+#include "esp_err.h"
 #include "test_status_report.h"
 
 typedef struct quali_can_test_handle_t quali_can_test_handle_t;
 
 struct quali_can_test_handle_t {
-    esp_err_t (*stop_restart)(quali_can_test_handle_t*);
+    esp_err_t (*stop_restart)(quali_can_test_handle_t *);
 };
 
-esp_err_t new_quali_can_instance(quali_can_test_handle_t **return_handle,
-                                 test_status_report_handle_t *reporter,
-                                 const twai_timing_config_t *t_config,
-                                 const twai_filter_config_t *f_config,
-                                 const twai_general_config_t *g_config,
-                                 uint32_t msg_id);
+esp_err_t new_quali_can_instance(quali_can_test_handle_t **return_handle, test_status_report_handle_t *reporter,
+    const twai_timing_config_t *t_config, const twai_filter_config_t *f_config, const twai_general_config_t *g_config,
+    uint32_t msg_id);
 
-#endif //_QUALI_CAN_TEST_H_
+#endif  //_QUALI_CAN_TEST_H_
