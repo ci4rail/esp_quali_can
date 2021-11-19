@@ -45,30 +45,32 @@ static void can_alert_task(void *arg)
 
         if (alerts_triggered & TWAI_ALERT_ARB_LOST) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ARB_LOST");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_ARB_LOST\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_ARB_LOST\n");
         }
         if (alerts_triggered & TWAI_ALERT_ABOVE_ERR_WARN) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ABOVE_ERR_WARN");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_ABOVE_ERR_WARN\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_ABOVE_ERR_WARN\n");
         }
         if (alerts_triggered & TWAI_ALERT_BUS_ERROR) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_BUS_ERROR");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_ERROR\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_ERROR\n");
         }
         if (alerts_triggered & TWAI_ALERT_TX_FAILED) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_TX_FAILED");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_TX_FAILED\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_TX_FAILED\n");
         }
         if (alerts_triggered & TWAI_ALERT_ERR_PASS) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ERR_PASS");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_ERR_PASS\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_ERR_PASS\n");
         }
         if (alerts_triggered & TWAI_ALERT_BUS_OFF) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_BUS_OFF");
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_OFF\n"));
+            reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_OFF\n");
         }
         vTaskDelay(pdMS_TO_TICKS(500));  // don't flood host with errors
     }
+
+    vTaskDelete(NULL);
 }
 
 static void can_report_task(void *arg)
@@ -87,7 +89,7 @@ static void can_report_task(void *arg)
         /* report data rate */
         snprintf(&(msg[0]), MAX_MSG_SIZE, "INF: Data rate: %d bit/s (%d messages/sec)\n",
             (handle_priv->handle_data.total_data - last_len) * 8, handle_priv->handle_data.msg_counter - last_msg_cnt);
-        ESP_ERROR_CHECK(reporter->report_status(reporter, msg));
+        reporter->report_status(reporter, msg);
         last_len = handle_priv->handle_data.total_data;
         last_msg_cnt = handle_priv->handle_data.msg_counter;
     }
@@ -105,7 +107,7 @@ static void can_transmit_task(void *arg)
         .data = {1, 2, 3, 4, 5, 6, 7, 8}};
     char report[80];
 
-    ESP_ERROR_CHECK(twai_start());
+    twai_start();
     ESP_LOGI(TAG, "Driver started");
 
     ESP_LOGI(TAG, "Message Details:");
@@ -127,7 +129,7 @@ static void can_transmit_task(void *arg)
         if (ret != ESP_OK) {
             ESP_LOGI(TAG, "Transmit Error: ret = 0x%x", ret);
             sprintf(report, "ERR: Transmit Error: ret = 0x%x\n", ret);
-            ESP_ERROR_CHECK(reporter->report_status(reporter, report));
+            reporter->report_status(reporter, report);
             vTaskDelay(pdMS_TO_TICKS(500));  // don't flood host with errors
         } else {
             handle_priv->handle_data.msg_counter++;
@@ -135,7 +137,7 @@ static void can_transmit_task(void *arg)
         }
     }
 
-    ESP_ERROR_CHECK(twai_stop());
+    twai_stop();
     ESP_LOGI(TAG, "Driver stopped");
     vTaskDelete(NULL);
 }
@@ -146,32 +148,36 @@ static void can_test_control_task(void *arg)
     test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
 
     /* install TWAI driver */
-    ESP_ERROR_CHECK(twai_driver_install(
-        handle_priv->handle_data.g_config, handle_priv->handle_data.t_config, handle_priv->handle_data.f_config));
+    twai_driver_install(
+        handle_priv->handle_data.g_config, handle_priv->handle_data.t_config, handle_priv->handle_data.f_config);
     ESP_LOGI(TAG, "Driver installed");
-    xTaskCreate(&can_alert_task, "can_alert", CAN_ALERT_THREAD_STACK_SIZE, (void *)handle_priv, 5, NULL);
 
     while (!handle_priv->handle_data.stop_restart) {
         ESP_LOGI(TAG, "Wait for start...");
         vTaskDelay(pdMS_TO_TICKS(100));
-        ESP_ERROR_CHECK(reporter->wait_for_start(reporter));
+        reporter->wait_for_start(reporter);
         /* reset stop test flag */
         handle_priv->handle_data.stop_test = false;
 
+        if (xTaskCreate(&can_alert_task, "can_alert", CAN_ALERT_THREAD_STACK_SIZE, (void *)handle_priv, 5, NULL) !=
+            pdPASS) {
+            reporter->report_status(reporter, "ERR: could not start can alert task!\n");
+            continue;
+        }
         if (xTaskCreate(&can_report_task, "can_report", CAN_REPORT_THREAD_STACK_SIZE, (void *)handle_priv, 5, NULL) !=
             pdPASS) {
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: could not start can report task!\n"));
+            reporter->report_status(reporter, "ERR: could not start can report task!\n");
             continue;
         }
         if (xTaskCreate(&can_transmit_task, "can_transmit", CAN_TRANSMIT_THREAD_STACK_SIZE, (void *)handle_priv, 5,
                 NULL) != pdPASS) {
-            ESP_ERROR_CHECK(reporter->report_status(reporter, "ERR: could not start can transmit task!\n"));
+            reporter->report_status(reporter, "ERR: could not start can transmit task!\n");
             handle_priv->handle_data.stop_test = true;
             continue;
         }
 
         ESP_LOGI(TAG, "Wait for stop...");
-        ESP_ERROR_CHECK(reporter->wait_for_stop(reporter));
+        reporter->wait_for_stop(reporter);
         /* stop test */
         handle_priv->handle_data.stop_test = true;
     }
