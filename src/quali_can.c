@@ -41,7 +41,8 @@ static void can_alert_task(void *arg)
     }
 
     while (!handle_priv->handle_data.stop_test) {
-        twai_read_alerts(&alerts_triggered, portMAX_DELAY);
+        alerts_triggered = 0;
+        twai_read_alerts(&alerts_triggered, 0);
 
         if (alerts_triggered & TWAI_ALERT_ARB_LOST) {
             ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ARB_LOST");
