@@ -108,8 +108,7 @@ static void can_transmit_task(void *arg)
         .data = {1, 2, 3, 4, 5, 6, 7, 8}};
     char report[80];
 
-    twai_start();
-    ESP_LOGI(TAG, "Driver started");
+    xSemaphoreTake(handle_priv->handle_data.driver_start, portMAX_DELAY);
 
     ESP_LOGI(TAG, "Message Details:");
     if (message.extd) {
@@ -138,8 +137,34 @@ static void can_transmit_task(void *arg)
         }
     }
 
+    vTaskDelete(NULL);
+}
+
+static void can_receive_task(void *arg)
+{
+    quali_can_test_handle_priv_t *handle_priv = (quali_can_test_handle_priv_t *)arg;
+    // test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
+    twai_message_t rx_message;
+
+    ESP_LOGI(TAG, "started can receive task");
+
+    ESP_ERROR_CHECK(twai_start());
+    ESP_LOGI(TAG, "Driver started");
+
+    // notify transmit task that driver is started
+    xSemaphoreGive(handle_priv->handle_data.driver_start);
+
+    while (!handle_priv->handle_data.stop_test) {
+        // Receive message and print message data
+        ESP_ERROR_CHECK(twai_receive(&rx_message, portMAX_DELAY));
+        ESP_LOGI(TAG, "Msg received - Data = %d", rx_message.data[0]);
+        // sprintf()
+        // reporter->report_status(reporter, "ERR: could not start can alert task!\n");
+    }
+
     twai_stop();
     ESP_LOGI(TAG, "Driver stopped");
+
     vTaskDelete(NULL);
 }
 
@@ -149,8 +174,8 @@ static void can_test_control_task(void *arg)
     test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
 
     /* install TWAI driver */
-    twai_driver_install(
-        handle_priv->handle_data.g_config, handle_priv->handle_data.t_config, handle_priv->handle_data.f_config);
+    ESP_ERROR_CHECK(twai_driver_install(
+        handle_priv->handle_data.g_config, handle_priv->handle_data.t_config, handle_priv->handle_data.f_config));
     ESP_LOGI(TAG, "Driver installed");
 
     while (!handle_priv->handle_data.stop_restart) {
@@ -170,11 +195,18 @@ static void can_test_control_task(void *arg)
             reporter->report_status(reporter, "ERR: could not start can report task!\n");
             continue;
         }
-        if (xTaskCreate(&can_transmit_task, "can_transmit", CAN_TRANSMIT_THREAD_STACK_SIZE, (void *)handle_priv, 5,
-                NULL) != pdPASS) {
-            reporter->report_status(reporter, "ERR: could not start can transmit task!\n");
-            handle_priv->handle_data.stop_test = true;
+        if (xTaskCreate(&can_receive_task, "can_receive", CAN_REPORT_THREAD_STACK_SIZE, (void *)handle_priv, 5, NULL) !=
+            pdPASS) {
+            reporter->report_status(reporter, "ERR: could not start can receive task!\n");
             continue;
+        }
+        if (handle_priv->handle_data.g_config->mode != TWAI_MODE_LISTEN_ONLY) {
+            if (xTaskCreate(&can_transmit_task, "can_transmit", CAN_TRANSMIT_THREAD_STACK_SIZE, (void *)handle_priv, 5,
+                    NULL) != pdPASS) {
+                reporter->report_status(reporter, "ERR: could not start can transmit task!\n");
+                handle_priv->handle_data.stop_test = true;
+                continue;
+            }
         }
 
         ESP_LOGI(TAG, "Wait for stop...");
@@ -215,10 +247,7 @@ esp_err_t new_quali_can_instance(quali_can_test_handle_t **return_handle, test_s
     handle->handle_data.msg_counter = 0;
     handle->handle_data.stop_test = false;
     handle->handle_data.stop_restart = false;
-
-    /* disable CAN_SILENT */
-    gpio_set_direction(GPIO_NUM_18, GPIO_MODE_OUTPUT);
-    gpio_set_level(GPIO_NUM_18, 0);
+    handle->handle_data.driver_start = xSemaphoreCreateBinary();
 
     xTaskCreate(
         &can_test_control_task, "can_test_control", CAN_TEST_CONTROL_THREAD_STACK_SIZE, (void *)handle, 5, NULL);

@@ -13,6 +13,7 @@ limitations under the License.
 #ifndef _QUALI_CAN_TEST_PRIVATE_H_
 #define _QUALI_CAN_TEST_PRIVATE_H_
 
+#include "freertos/semphr.h"
 #include "quali_can_test.h"
 
 #define STATUS_REPORT_THREAD_STACK_SIZE 4096
@@ -27,6 +28,7 @@ typedef struct {
     uint32_t msg_counter;
     bool stop_test;
     bool stop_restart;
+    SemaphoreHandle_t driver_start;
 } quali_can_test_data_t;
 
 typedef struct {

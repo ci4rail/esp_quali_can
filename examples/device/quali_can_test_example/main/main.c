@@ -63,6 +63,9 @@ void app_main(void)
     /* enable ENDC_DC */
     gpio_set_direction(GPIO_NUM_34, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_NUM_34, 1);
+    /* disable CAN_SILENT */
+    gpio_set_direction(GPIO_NUM_18, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_NUM_18, 0);
 
     ESP_ERROR_CHECK(new_test_status_report_instance(&reporter, port));
     ESP_ERROR_CHECK(new_quali_can_instance(&can_test, reporter, &t_config, &f_config, &g_config, 0xA3));
