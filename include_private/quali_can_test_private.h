@@ -24,11 +24,14 @@ typedef struct {
     const twai_filter_config_t *f_config;
     const twai_general_config_t *g_config;
     uint32_t msg_id;
-    uint32_t total_data;
-    uint32_t msg_counter;
+    uint32_t total_tx_data;
+    uint32_t tx_msg_counter;
+    uint32_t total_rx_data;
+    uint32_t rx_msg_counter;
     bool stop_test;
     bool stop_restart;
     SemaphoreHandle_t driver_start;
+    SemaphoreHandle_t driver_stop;
 } quali_can_test_data_t;
 
 typedef struct {
