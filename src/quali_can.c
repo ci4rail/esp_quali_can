@@ -179,8 +179,11 @@ static void can_receive_task(void *arg)
 {
     quali_can_test_handle_priv_t *handle_priv = (quali_can_test_handle_priv_t *)arg;
     test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
+    esp_err_t ret;
+    char msg[MAX_MSG_SIZE];
+    uint8_t i = 0;
+    bool sync_data = true;
     twai_message_t message;
-    uint8_t expected_data[CAN_RECEIVE_DATA_LENGTH] = {1, 2, 3, 4, 5, 6, 7, 8};
 
     ESP_LOGI(TAG, "started can receive task");
 
@@ -191,23 +194,29 @@ static void can_receive_task(void *arg)
     xSemaphoreGive(handle_priv->handle_data.driver_start);
 
     while (!handle_priv->handle_data.stop_test) {
-        esp_err_t ret;
-        char msg[MAX_MSG_SIZE];
+        uint8_t expected_data[CAN_RECEIVE_DATA_LENGTH] = {i, i, i, i, i, i, i, i};
         // Receive message and print message data
-        ret = twai_receive(&message, portMAX_DELAY);
+        ret = twai_receive(&message, pdMS_TO_TICKS(100));
         if (ret != ESP_OK) {
             snprintf(msg, MAX_MSG_SIZE, "ERR: Receive failed: %s.\n", esp_err_to_name(ret));
             reporter->report_status(reporter, msg);
+            sync_data = true;
         } else if (message.data_length_code != CAN_RECEIVE_DATA_LENGTH) {
             snprintf(msg, MAX_MSG_SIZE, "ERR: Got wrong data length! Expected %d, got %d.\n", CAN_RECEIVE_DATA_LENGTH,
                 message.data_length_code);
             reporter->report_status(reporter, msg);
+            sync_data = true;
+        } else if (sync_data == true) {
+            i = message.data[0];
+            sync_data = false;
         } else if (memcmp(message.data, &expected_data, CAN_RECEIVE_DATA_LENGTH) != 0) {
             reporter->report_status(reporter, "ERR: Got wrong data!\n");
+            sync_data = true;
         } else {
             handle_priv->handle_data.rx_msg_counter++;
             handle_priv->handle_data.total_rx_data += 8;
         }
+        i++;
     }
 
     xSemaphoreTake(handle_priv->handle_data.driver_stop, portMAX_DELAY);
