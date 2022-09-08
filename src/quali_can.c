@@ -29,55 +29,6 @@ limitations under the License.
 
 static const char *TAG = "quali-can";
 
-static void can_alert_task(void *arg)
-{
-    quali_can_test_handle_priv_t *handle_priv = (quali_can_test_handle_priv_t *)arg;
-    test_status_report_handle_t *reporter = handle_priv->handle_data.reporter;
-    uint32_t alerts_to_enable = TWAI_ALERT_ARB_LOST | TWAI_ALERT_ABOVE_ERR_WARN | TWAI_ALERT_BUS_ERROR |
-                                TWAI_ALERT_TX_FAILED | TWAI_ALERT_ERR_PASS | TWAI_ALERT_BUS_OFF;
-    uint32_t alerts_triggered;
-
-    if (twai_reconfigure_alerts(alerts_to_enable, NULL) == ESP_OK) {
-        ESP_LOGI(TAG, "Alerts reconfigured");
-    } else {
-        ESP_LOGI(TAG, "Failed to reconfigure alerts");
-        vTaskDelete(NULL);
-    }
-
-    while (!handle_priv->handle_data.stop_test) {
-        alerts_triggered = 0;
-        twai_read_alerts(&alerts_triggered, 0);
-
-        if (alerts_triggered & TWAI_ALERT_ARB_LOST) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ARB_LOST");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_ARB_LOST\n");
-        }
-        if (alerts_triggered & TWAI_ALERT_ABOVE_ERR_WARN) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ABOVE_ERR_WARN");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_ABOVE_ERR_WARN\n");
-        }
-        if (alerts_triggered & TWAI_ALERT_BUS_ERROR) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_BUS_ERROR");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_ERROR\n");
-        }
-        if (alerts_triggered & TWAI_ALERT_TX_FAILED) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_TX_FAILED");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_TX_FAILED\n");
-        }
-        if (alerts_triggered & TWAI_ALERT_ERR_PASS) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_ERR_PASS");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_ERR_PASS\n");
-        }
-        if (alerts_triggered & TWAI_ALERT_BUS_OFF) {
-            ESP_LOGI(TAG, "CAN-Alert: TWAI_ALERT_BUS_OFF");
-            reporter->report_status(reporter, "ERR: TWAI_ALERT_BUS_OFF\n");
-        }
-        vTaskDelay(pdMS_TO_TICKS(500));  // don't flood host with errors
-    }
-
-    vTaskDelete(NULL);
-}
-
 static void can_tx_report_task(void *arg)
 {
     quali_can_test_handle_priv_t *handle_priv = (quali_can_test_handle_priv_t *)arg;
@@ -196,7 +147,7 @@ static void can_receive_task(void *arg)
     while (!handle_priv->handle_data.stop_test) {
         uint8_t expected_data[CAN_RECEIVE_DATA_LENGTH] = {i, i, i, i, i, i, i, i};
         // Receive message and print message data
-        ret = twai_receive(&message, pdMS_TO_TICKS(100));
+        ret = twai_receive(&message, pdMS_TO_TICKS(1000));
         if (ret != ESP_OK) {
             snprintf(msg, MAX_MSG_SIZE, "ERR: Receive failed: %s.\n", esp_err_to_name(ret));
             reporter->report_status(reporter, msg);
@@ -244,12 +195,6 @@ static void can_test_control_task(void *arg)
         /* reset stop test flag */
         handle_priv->handle_data.stop_test = false;
 
-        if (xTaskCreate(&can_alert_task, "can_alert", CAN_ALERT_THREAD_STACK_SIZE, (void *)handle_priv, 5, NULL) !=
-            pdPASS) {
-            reporter->report_status(reporter, "ERR: could not start can alert task!\n");
-            handle_priv->handle_data.stop_test = true;
-            continue;
-        }
         if (xTaskCreate(&can_rx_report_task, "can_rx_report", CAN_REPORT_THREAD_STACK_SIZE, (void *)handle_priv, 5,
                 NULL) != pdPASS) {
             reporter->report_status(reporter, "ERR: could not start can rx report task!\n");
