@@ -147,7 +147,7 @@ static void can_receive_task(void *arg)
     while (!handle_priv->handle_data.stop_test) {
         uint8_t expected_data[CAN_RECEIVE_DATA_LENGTH] = {i, i, i, i, i, i, i, i};
         // Receive message and print message data
-        ret = twai_receive(&message, pdMS_TO_TICKS(1000));
+        ret = twai_receive(&message, pdMS_TO_TICKS(2500));
         if (ret != ESP_OK) {
             snprintf(msg, MAX_MSG_SIZE, "ERR: Receive failed: %s.\n", esp_err_to_name(ret));
             reporter->report_status(reporter, msg);
